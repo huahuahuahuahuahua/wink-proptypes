@@ -1,0 +1,96 @@
+import resolve from "@rollup/plugin-node-resolve";
+import path from "path";
+import commonjs from "rollup-plugin-commonjs";
+import typescript from "rollup-plugin-typescript2";
+import json from "@rollup/plugin-json";
+import replace from "@rollup/plugin-replace";
+import nodePolyfills from "rollup-plugin-polyfill-node";
+import { terser } from "rollup-plugin-terser";
+import pkg from "./package.json";
+import babel from "rollup-plugin-babel";
+import serve from "rollup-plugin-serve";
+import livereload from "rollup-plugin-livereload";
+const jsName = "main";
+const production = process.env.NODE_ENV === "production";
+const development = process.env.NODE_ENV === "development";
+const ext = production ? "min.js" : "js";
+
+/** 输入的文件夹 */
+let g_d_input_path = "src";
+
+/** 输出的文件夹 */
+let g_d_ouput_path = "dist";
+/** 需要编译的文件名（不带后缀名） */
+let g_d_input_file_name_no_ext_list = pkg._need_handle_files;
+const getPath = (_path) => path.resolve(__dirname, _path);
+const extensions = [".js", ".ts", ".tsx", ".jsx"];
+
+let g_d_plugins_01 = [
+  babel({
+    exclude: "node_modules/**", // only transpile our source code
+  }),
+  nodePolyfills(),
+  typescript({
+    tsconfig: getPath("./tsconfig.json"), // 导入本地ts配置
+    extensions,
+    // 默认声明文件放到一个文件夹中
+    useTsconfigDeclarationDir: true,
+  }),
+  commonjs(), // 配合 commnjs 解析第三方模块
+  resolve({
+    // 将自定义选项传递给解析插件
+    customResolveOptions: {
+      moduleDirectory: "node_modules",
+    },
+  }),
+  production && terser(),
+  json(),
+];
+let g_d_3rd_lib_dep = ["axios"];
+let g_d_tasks_list = [].concat(
+  // 打包成无依赖、有压缩的 umd 文件，适用于页面通过 amd、cmd、直接引入的方式使用
+  // （因为要能独立使用，所以依赖必须打包进去，文件也必须压缩）
+  g_d_input_file_name_no_ext_list.map((name) => {
+    let d_replace_obj = {};
+    g_d_input_file_name_no_ext_list.forEach((n) => {
+      d_replace_obj[`${n}.ts`] = n;
+    });
+    return {
+      input: `${g_d_input_path}/${name}.ts`,
+      output: [
+        // 输出 commonjs 规范的代码
+        {
+          file: `${g_d_ouput_path}/${name}.${ext}`,
+          format: "umd",
+          name: "globalName",
+          sourcemap: true,
+        },
+        // 输出 es 规范的代码
+        {
+          file: `${g_d_ouput_path}/${name}.esm.${ext}`,
+          format: "esm",
+          name: "globalName",
+          sourcemap: true,
+        },
+      ],
+      external: g_d_3rd_lib_dep.concat(
+        g_d_input_file_name_no_ext_list
+          .filter((n) => n !== name)
+          .map((n) => path.resolve(`./src/${n}.ts`))
+      ),
+      plugins: g_d_plugins_01.concat(
+        replace({
+          values: d_replace_obj,
+          preventAssign: true,
+        }),
+        development && serve({ open: true, contentBase: "." }),
+        development &&
+          livereload({
+            watch: ["dist", "index.html"],
+          })
+      ),
+    };
+  })
+);
+
+export default g_d_tasks_list;

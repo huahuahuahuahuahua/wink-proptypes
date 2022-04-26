@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试type</title>
+    <script src="../dist/index.js"></script>
+</head>
+<body>
+        <h1>测试propTypes是否为正常</h1>
+        <p>打开开发者工具查看 console。</p>
+        <button onclick="showPropTypes()">点击显示propTypes</button>
+        <div></div>
+</body>
+<script>
+    globalName.prototype[Symbol.iterator]=function(){
+        const keys = Object.keys(this)
+        let index = 0;
+        return {
+            next:()=>{
+                return{
+                    value:this[keys[index++]],
+                    done:index>keys.length
+                }
+            }
+        }
+    }
+function showPropTypes() {
+    const div = document.getElementsByTagName("div")[0]
+    for(let name of globalName){
+        let p = document.createElement("p")
+        p.innerHTML=name+':'+ globalName[name]
+        div.appendChild(p)
+    }
+    console.log(globalName)
+}
+</script>
+</html>
